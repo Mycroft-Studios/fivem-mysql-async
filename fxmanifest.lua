@@ -1,11 +1,11 @@
 fx_version 'cerulean'
 game 'common'
 
-name 'oxmysql'
+name 'mysql-async'
 description 'Database wrapper for FXServer utilising node-mysql2 offering improved performance and security.'
 version '2.6.0'
-url 'https://github.com/overextended/oxmysql'
-author 'overextended'
+url 'https://github.com/Mycroft-Studios/fivem-mysql-async'
+author 'Mycroft and other people'
 
 dependencies {
 	'/server:5104',
@@ -21,10 +21,10 @@ files {
 
 ui_page 'web/build/index.html'
 
-provide 'mysql-async'
+provide 'oxmysql'
 provide 'ghmattimysql'
 
-convar_category 'OxMySQL' {
+convar_category 'mysql-async' {
 	'Configuration',
 	{
 		{ 'Connection string', 'mysql_connection_string', 'CV_STRING', 'mysql://user:password@localhost/database' },
