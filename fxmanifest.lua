@@ -1,29 +1,33 @@
-fx_version 'adamant'
+fx_version 'cerulean'
 game 'common'
 
-name 'mysql-async'
-description 'MySQL Middleware for lua.'
-author 'Joel Wurtz & Matthias Mandelartz'
-version '3.3.2'
-url 'https://github.com/brouznouf/fivem-mysql-async'
+name 'oxmysql'
+description 'Database wrapper for FXServer utilising node-mysql2 offering improved performance and security.'
+version '2.6.0'
+url 'https://github.com/overextended/oxmysql'
+author 'overextended'
 
-server_script 'mysql-async.js'
-client_script 'mysql-async-client.lua'
-
-files {
-  'ui/index.html',
-  'ui/js/app.js',
-  'ui/css/app.css',
-  'ui/fonts/fira-sans-v9-latin-700.woff',
-  'ui/fonts/fira-sans-v9-latin-700.woff2',
-  'ui/fonts/fira-sans-v9-latin-italic.woff',
-  'ui/fonts/fira-sans-v9-latin-italic.woff2',
-  'ui/fonts/fira-sans-v9-latin-regular.woff',
-  'ui/fonts/fira-sans-v9-latin-regular.woff2',
-  'ui/fonts/MaterialIcons-Regular.eot',
-  'ui/fonts/MaterialIcons-Regular.ttf',
-  'ui/fonts/MaterialIcons-Regular.woff',
-  'ui/fonts/MaterialIcons-Regular.woff2',
+dependencies {
+	'/server:5104',
 }
 
-ui_page 'ui/index.html'
+client_script 'ui.lua'
+server_script 'dist/build.js'
+
+files {
+	'web/build/index.html',
+	'web/build/**/*'
+}
+
+ui_page 'web/build/index.html'
+
+provide 'mysql-async'
+provide 'ghmattimysql'
+
+convar_category 'OxMySQL' {
+	'Configuration',
+	{
+		{ 'Connection string', 'mysql_connection_string', 'CV_STRING', 'mysql://user:password@localhost/database' },
+		{ 'Debug', 'mysql_debug', 'CV_BOOL', 'false' }
+	}
+}

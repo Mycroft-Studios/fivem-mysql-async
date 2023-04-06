@@ -1,29 +1,27 @@
-### Introduction
+# oxmysql
 
-This mysql-async Library for FiveM intends to provide function to connect to a MySQL in a Sync and Async way.
+A FiveM resource to communicate with a MySQL database using [node-mysql2](https://github.com/sidorares/node-mysql2). 
 
-### Documentation
+## 📚 Documentation
 
-Check out https://brouznouf.github.io/fivem-mysql-async/ for a complete documentation.
+https://overextended.github.io/docs/oxmysql/
 
-### Questions
-For help and support questions, please use [Discord](https://discord.gg/AXcxRjt). I would like to keep the issues in this repository for bugs and feature requests only.
+## 💾 Download
 
-### Supporting
-If you wish to support GHMatti for whatever reason use the **[Patreon](https://www.patreon.com/GHMatti)**.
+https://github.com/overextended/oxmysql/releases/latest/download/oxmysql.zip
 
-### Issues
-Make sure you provide all information possible when reporting an issue.
+![](https://img.shields.io/github/downloads/overextended/oxmysql/total?logo=github)
+![](https://img.shields.io/github/downloads/overextended/oxmysql/latest/total?logo=github)
 
-### Changelog
-For a detailed changelog either check the commits or read https://github.com/brouznouf/fivem-mysql-async/releases
+## ✨ Features
 
-### Contributing
-Help to expand sensibly on the middleware is always welcome. 
+- Support for mysql-async and ghmattimysql syntax.
+- Promises / async query handling allowing for non-blocking and awaitable responses.
+- Improved performance and stability compared to other options.
+- Support for named and unnamed placeholders, improving performance and security.
+- Support for URI connection strings and semicolon separated values.
+- Improved parameter checking and error handling.
 
-### Features
+## npm
 
- * Async / Sync.
- * It uses the https://github.com/mysqljs/mysql library to provide a connection to your mysql server.
- * Create and close a connection for each query, the underlying library use a connection pool so only the
-mysql auth is done each time, old tcp connections are keeped in memory for performance reasons.
+https://www.npmjs.com/package/@overextended/oxmysql

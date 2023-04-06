@@ -1,13 +1,10 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "module": "commonjs",
-    "types": ["@citizenfx/client", "@citizenfx/server", "@types/node", "@types/mysql"],
-  },
-  "include": [
-    "**/*"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+    "strict": true,
+    "lib": ["ESNext"],
+    "module": "CommonJS",
+    "target": "ESNext",
+    "moduleResolution": "node",
+    "types": ["@citizenfx/server", "@types/node"]
+  }
 }

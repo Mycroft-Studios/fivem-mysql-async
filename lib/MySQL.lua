@@ -1,228 +1,131 @@
-MySQL = {
-    Async = {},
-    Sync = {},
+local Store = {}
+
+local function addStore(query, cb)
+	assert(type(query) == 'string', 'The SQL Query must be a string')
+	local store = #Store+1
+	Store[store] = query
+	if cb then cb(store) else return store end
+end
+
+local MySQL = {
+	Sync = { store = addStore },
+	Async = { store = addStore },
+
+	ready = function(cb)
+		CreateThread(function()
+			repeat
+				Wait(50)
+			until GetResourceState('oxmysql') == 'started'
+			cb()
+		end)
+	end
 }
 
-local function safeParameters(params)
-    if nil == params then
-        return {[''] = ''}
-    end
+local type = type
 
-    assert(type(params) == "table", "A table is expected")
+local function safeArgs(query, parameters, cb, transaction)
+	local queryType = type(query)
 
-    if next(params) == nil then
-        return {[''] = ''}
-    end
+	if queryType == 'number' then
+		query = Store[query]
+	elseif transaction then
+		if queryType ~= 'table' then
+			error(("First argument expected table, received '%s'"):format(query))
+		end
+	elseif queryType ~= 'string' then
+		error(("First argument expected string, received '%s'"):format(query))
+	end
 
-    return params
+	if parameters then
+		local paramType = type(parameters)
+
+		if paramType ~= 'table' and paramType ~= 'function' then
+			error(("Second argument expected table or function, received '%s'"):format(parameters))
+		end
+
+		if paramType == 'function' or parameters.__cfx_functionReference then
+			cb = parameters
+			parameters = nil
+		end
+	end
+
+	if cb and parameters then
+		local cbType = type(cb)
+
+		if cbType ~= 'function' and (cbType == 'table' and not cb.__cfx_functionReference) then
+			error(("Third argument expected function, received '%s'"):format(cb))
+		end
+	end
+
+	return query, parameters, cb
 end
 
----
--- Execute a query with no result required, sync version
---
--- @param query
--- @param params
---
--- @return int Number of rows updated
---
-function MySQL.Sync.execute(query, params)
-    assert(type(query) == "string" or type(query) == "number", "The SQL Query must be a string")
+local promise = promise
+local oxmysql = exports.oxmysql
+local Await = Citizen.Await
+local GetCurrentResourceName = GetCurrentResourceName()
 
-    local res = 0
-    local finishedQuery = false
-    exports['mysql-async']:mysql_execute(query, safeParameters(params), function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
----
--- Execute a query and fetch all results in an sync way
---
--- @param query
--- @param params
---
--- @return table Query results
---
-function MySQL.Sync.fetchAll(query, params)
-    assert(type(query) == "string" or type(query) == "number", "The SQL Query must be a string")
+local function await(fn, query, parameters)
+	local p = promise.new()
+	fn(nil, query, parameters, function(result, error)
+		if error then
+			return p:reject(error)
+		end
 
-    local res = {}
-    local finishedQuery = false
-    exports['mysql-async']:mysql_fetch_all(query, safeParameters(params), function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
+		p:resolve(result)
+	end, GetCurrentResourceName, true)
+	return Await(p)
 end
 
----
--- Execute a query and fetch the first column of the first row, sync version
--- Useful for count function by example
---
--- @param query
--- @param params
---
--- @return mixed Value of the first column in the first row
---
-function MySQL.Sync.fetchScalar(query, params)
-    assert(type(query) == "string" or type(query) == "number", "The SQL Query must be a string")
+setmetatable(MySQL, {
+	__index = function(self, method)
+		local state = GetResourceState('oxmysql')
+		if state == 'started' or state == 'starting' then
+			self[method] = setmetatable({}, {
 
-    local res = ''
-    local finishedQuery = false
-    exports['mysql-async']:mysql_fetch_scalar(query, safeParameters(params), function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
+				__call = function(_, query, parameters, cb)
+					query, parameters, cb = safeArgs(query, parameters, cb, method == 'transaction')
+					return oxmysql[method](nil, query, parameters, cb, GetCurrentResourceName, false)
+				end,
 
----
--- Execute a query and retrieve the last id insert, sync version
---
--- @param query
--- @param params
---
--- @return mixed Value of the last insert id
---
-function MySQL.Sync.insert(query, params)
-    assert(type(query) == "string" or type(query) == "number", "The SQL Query must be a string")
+				__index = function(_, index)
+					assert(index == 'await', ('unable to index MySQL.%s.%s, expected .await'):format(method, index))
+					self[method].await = function(query, parameters)
+						return await(oxmysql[method], safeArgs(query, parameters, nil, method == 'transaction'))
+					end
+					return self[method].await
+				end
+			})
 
-    local res = 0
-    local finishedQuery = false
-    exports['mysql-async']:mysql_insert(query, safeParameters(params), function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
+			return self[method]
+		else
+			error(('^1oxmysql resource state is %s - unable to trigger exports.oxmysql:%s^0'):format(state, method), 0)
+		end
+	end
+})
 
----
--- Stores a query for later execution
---
--- @param query
---
-function MySQL.Sync.store(query)
-    assert(type(query) == "string", "The SQL Query must be a string")
+local alias = {
+	fetchAll = 'query',
+	fetchScalar = 'scalar',
+	fetchSingle = 'single',
+	insert = 'insert',
+	execute = 'update',
+	transaction = 'transaction',
+	prepare = 'prepare'
+}
 
-    local res = -1
-    local finishedQuery = false
-    exports['mysql-async']:mysql_store(query, function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
+local alias_mt = {
+	__index = function(self, key)
+		if alias[key] then
+			MySQL.Async[key] = MySQL[alias[key]]
+			MySQL.Sync[key] = MySQL[alias[key]].await
+			alias[key] = nil
+			return self[key]
+		end
+	end
+}
 
----
--- Execute a List of querys and returns bool true when all are executed successfully
---
--- @param querys
--- @param params
---
--- @return bool if the transaction was successful
---
-function MySQL.Sync.transaction(querys, params)
-    local res = 0
-    local finishedQuery = false
-    exports['mysql-async']:mysql_transaction(querys, params, function (result)
-        res = result
-        finishedQuery = true
-    end)
-    repeat Citizen.Wait(0) until finishedQuery == true
-    return res
-end
+setmetatable(MySQL.Async, alias_mt)
+setmetatable(MySQL.Sync, alias_mt)
 
----
--- Execute a query with no result required, async version
---
--- @param query
--- @param params
--- @param func(int)
---
-function MySQL.Async.execute(query, params, func)
-    assert(type(query) == "string" or type(query) == "number", "The SQL Query must be a string")
-
-    exports['mysql-async']:mysql_execute(query, safeParameters(params), func)
-end
-
----
--- Execute a query and fetch all results in an async way
---
--- @param query
--- @param params
--- @param func(table)
---
-function MySQL.Async.fetchAll(query, params, func)
-    assert(type(query) == "string" or type(query) == "number", "The SQL Query must be a string")
-
-    exports['mysql-async']:mysql_fetch_all(query, safeParameters(params), func)
-end
-
----
--- Execute a query and fetch the first column of the first row, async version
--- Useful for count function by example
---
--- @param query
--- @param params
--- @param func(mixed)
---
-function MySQL.Async.fetchScalar(query, params, func)
-    assert(type(query) == "string" or type(query) == "number", "The SQL Query must be a string")
-
-    exports['mysql-async']:mysql_fetch_scalar(query, safeParameters(params), func)
-end
-
----
--- Execute a query and retrieve the last id insert, async version
---
--- @param query
--- @param params
--- @param func(string)
---
-function MySQL.Async.insert(query, params, func)
-    assert(type(query) == "string" or type(query) == "number", "The SQL Query must be a string")
-
-    exports['mysql-async']:mysql_insert(query, safeParameters(params), func)
-end
-
----
--- Stores a query for later execution
---
--- @param query
--- @param func(number)
---
-function MySQL.Async.store(query, func)
-    assert(type(query) == "string", "The SQL Query must be a string")
-
-    exports['mysql-async']:mysql_store(query, func)
-end
-
----
--- Execute a List of querys and returns bool true when all are executed successfully
---
--- @param querys
--- @param params
--- @param func(bool)
---
-function MySQL.Async.transaction(querys, params, func)
-    return exports['mysql-async']:mysql_transaction(querys, params, func)
-end
-
-function MySQL.ready (callback)
-    Citizen.CreateThread(function ()
-        -- add some more error handling
-        while GetResourceState('mysql-async') ~= 'started' do
-            Citizen.Wait(0)
-        end
-        while not exports['mysql-async']:is_ready() do
-            Citizen.Wait(0)
-        end
-        callback()
-    end)
-end
+_ENV.MySQL = MySQL
